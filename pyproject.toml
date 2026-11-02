@@ -1,0 +1,16 @@
+[project]
+name = "lessonforge"
+version = "1.0.0"
+description = "PKG-45 Lesson & Exercise Generator: sujet -> plan de cours + exercices en français (CLI)"
+requires-python = ">=3.10"
+dependencies = ["anthropic>=0.40", "pydantic>=2.5"]
+
+[project.scripts]
+lessonforge = "lessonforge.cli:main"
+
+[tool.setuptools]
+packages = ["lessonforge"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
