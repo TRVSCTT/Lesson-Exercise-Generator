@@ -1,7 +1,5 @@
 # lessonforge: Lesson & Exercise Generator
 
-**PKG-45 · AppsTechLabs CRM catalogue · D. People and daily operations**
-
 `lessonforge` is a command-line tool that turns a **topic** into a **ready-to-teach lesson plan with exercises and
 an answer key, written in French**, for private schools and training centres. It uses the Claude API, validates every
 result automatically, and ships with a **gold validation suite** that measures how reliable it really is.
@@ -12,21 +10,33 @@ lessonforge generate "Pythagoras' theorem" --level 4e --duration 55 --exercises 
 
 ---
 
-## Table of contents
+## Project structure
 
-1. [What it does](#what-it-does)
-2. [Requirements](#requirements)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [Usage](#usage)
-6. [Output format](#output-format)
-7. [How it works](#how-it-works)
-8. [Gold validation](#gold-validation)
-9. [Project structure](#project-structure)
-10. [Tests](#tests)
-11. [Troubleshooting](#troubleshooting)
-12. [Limitations](#limitations)
-13. [Contributing and license](#contributing-and-license)
+```
+lessonforge/
+├── README.md
+├── pyproject.toml            # package metadata and the `lessonforge` command
+├── requirements.txt          # runtime dependencies
+├── requirements-dev.txt      # runtime + pytest
+├── .env                      # stores the api key
+├── .gitignore
+├── lessonforge/
+│   ├── __init__.py
+│   ├── cli.py                # command-line interface: generate, gold
+│   ├── generator.py          # generate → validate → retry loop
+│   ├── prompts.py            # system prompt, user prompt, retry prompt
+│   ├── schema.py             # pydantic models: Request, Lesson, Stage, Exercise
+│   ├── checks.py             # deterministic validation rules
+│   ├── judge.py              # independent re-solving of the answer keys
+│   ├── gold.py               # gold runner and report writer
+│   ├── render.py             # Markdown rendering (teacher / student)
+│   └── llm.py                # Anthropic API wrapper (the only file that calls Claude)
+├── gold/
+│   └── cases.jsonl           # the 20 gold cases
+└── tests/
+    ├── fakes.py              # fake Claude client and a sample lesson
+    └── test_all.py
+```
 
 ---
 
@@ -131,9 +141,6 @@ The tool reads the key from the `ANTHROPIC_API_KEY` environment variable. The si
    ```
 
    Use **no quotes**, **no spaces** around `=`, and nothing after the key.
-
-The `.env` file is searched in the folder you run the command from, then in its parent folders. If the variable is
-already set in your terminal, **the terminal value wins over the file**.
 
 Setting it in the terminal instead:
 
@@ -430,68 +437,7 @@ A passing case typically needs 1 generation call plus 1–2 judge calls, and mor
 |---|---|---|---|
 | _to be completed_ | _to be completed_ | _to be completed_ | _to be completed_ |
 
----
 
-## Project structure
-
-```
-lessonforge/
-├── README.md
-├── pyproject.toml            # package metadata and the `lessonforge` command
-├── requirements.txt          # runtime dependencies
-├── requirements-dev.txt      # runtime + pytest
-├── .env.example              # template for your API key (copy to .env)
-├── .gitignore
-├── lessonforge/
-│   ├── __init__.py
-│   ├── cli.py                # command-line interface: generate, gold
-│   ├── generator.py          # generate → validate → retry loop
-│   ├── prompts.py            # system prompt, user prompt, retry prompt
-│   ├── schema.py             # pydantic models: Request, Lesson, Stage, Exercise
-│   ├── checks.py             # deterministic validation rules
-│   ├── judge.py              # independent re-solving of the answer keys
-│   ├── gold.py               # gold runner and report writer
-│   ├── render.py             # Markdown rendering (teacher / student)
-│   └── llm.py                # Anthropic API wrapper (the only file that calls Claude)
-├── gold/
-│   └── cases.jsonl           # the 20 gold cases
-└── tests/
-    ├── fakes.py              # fake Claude client and a sample lesson
-    └── test_all.py
-```
-
-`llm.py` is the only file that talks to the API. That is where the model call happens and where the default model is
-set.
-
----
-
-## Tests
-
-```bash
-pip install -r requirements-dev.txt
-python -m pytest -q
-```
-
-Run it from the project folder (the one containing `pyproject.toml`). **15 tests** cover the deterministic checks,
-the retry loop, the "never deliver an invalid lesson silently" guarantee, Markdown rendering, the gold runner
-(passing, failing, declined cases, report counts), the shipped gold file, and `.env` loading. They use a fake client:
-**no API key and no cost**.
-
----
-
-## Troubleshooting
-
-| Problem | Cause and fix |
-|---|---|
-| `ANTHROPIC_API_KEY is missing` | No key found. Create `.env` in the folder you run from, or set the variable in the terminal |
-| `401 authentication_error: invalid x-api-key` | The key was found but Anthropic rejected it. Check that `.env` contains exactly `ANTHROPIC_API_KEY=sk-ant-...` (no quotes, spaces or leftover placeholder), that the key is complete, and that it has not been revoked. Also check that a stale key is not set in the terminal, since it overrides `.env` (`echo $env:ANTHROPIC_API_KEY` in PowerShell, `echo %ANTHROPIC_API_KEY%` in Command Prompt) |
-| `.env` seems ignored | The file may be saved as `.env.txt` (Notepad does this). Show file extensions in File Explorer, or create it with VS Code. It must be in the folder you run from or a parent |
-| `lessonforge` is not recognized | The package is not installed or the virtual environment is not active. Activate `venv`, run `pip install -e .`, or use `python -m lessonforge.cli` |
-| `The model's answer was cut off at ... tokens` | The answer hit the token limit. Reduce `--exercises`, or raise `max_tokens` in `lessonforge/llm.py` |
-| Warning: the lesson does not fully meet the contract | After 3 attempts a check still fails. The problems are listed. Run it again, reduce `--exercises`, or try a stronger model with `--model` |
-| `Topic not handled: ...` (exit code 3) | The topic was declined as too vague or unsuitable. Narrow it to one lesson, for example "Adding fractions" instead of "maths" |
-| `python -m pytest`: no tests found, or `test_all.py` not found | `test_all.py` is inside `tests/` and is run through pytest, not with `python test_all.py`. Run `python -m pytest -q` from the project folder |
-| Validation error about `duration` or `exercises` | Values must be within range: duration 20–240, exercises 2–15 |
 
 ---
 
@@ -511,12 +457,4 @@ the retry loop, the "never deliver an invalid lesson silently" guarantee, Markdo
   topic.
 - **Each lesson costs API usage.** Retries and the gold run cost more than a single generation.
 
----
 
-## Contributing and license
-
-To change behaviour, edit the matching file (prompt in `prompts.py`, rules in `checks.py`, structure in `schema.py`),
-add or adjust a gold case in `gold/cases.jsonl`, run `python -m pytest -q`, then run `lessonforge gold` and record
-the result in the table above.
-
-License: _to be defined before publishing (add a `LICENSE` file)._
