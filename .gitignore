@@ -1,6 +1,11 @@
 .env
 .venv/
+venv/
 __pycache__/
 .pytest_cache/
+
+# Generated reports and lessons
 reports/
+
+.vscode/
 
